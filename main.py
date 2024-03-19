@@ -5,6 +5,7 @@ from pokerHelper import parse_card, parse_card_str, parse_card_str_back, parse_h
 from player import Player
 
 path_to_model = "dolphin-2.6-mistral-7b-dpo-laser.Q4_K_M.gguf"
+# path_to_model = "mistral-7b-v0.1.Q6_K.gguf"
 ruleLm = models.LlamaCpp(path_to_model, n_gpu_layers=-1, echo=False, temperature=0.7, n_ctx=2048)
 ruleLm+= "I'm playing black jack, with some custom rules, the custom rules are: "
 ruleLm+= " at the beginning of the game, the dealer will deal everyone, including themselves, two cards, face down, so no one can see others cards."
@@ -48,12 +49,10 @@ def player_hit(self,lm):
 def player_score_evaluation(self,lm,score):
     resultLm = lm 
     with block(name="score_evaluation"):
-        resultLm+= "my hand's score is " + score
-        resultLm+=", which compare to 16(the legal score) is " + select(options=["lesser","more","equal"]) 
+        resultLm+= "my hand's score is " + score + ", which is " + select(options=["larger than","smaller than","equal to"]) + " 16"
         resultLm+=", so my hand is " + select(name="isLegal", options=["not legal","legal"])
-        resultLm+= ". my hand's score is " + score
-        resultLm+=", which compare to 21(the maximum score) is " + select(options=["lesser","more","equal"]) 
-        resultLm+=", so my hand is " + select(name="isBusted", options=["busted","not busted"])
+        resultLm+= ". my hand's score is " + score + ", which is " + select(options=["larger than","smaller than","equal to"]) + " 21"
+        resultLm+= ", which means that my hand is " + select(name="isBusted", options=["busted","not busted"])
     return resultLm
 
 @guidance(stateless=True)
@@ -111,27 +110,27 @@ for i in range(playerCount*2):
 #             break
 #         players[i].receive_card(deck.draw(1)[0])
     
-# j=1
-# while True:
-#     print(parse_hand(players[j].hand))
-#     hand = pretty_print_hand(players[j].hand)
+j=1
+while True:
+    print(parse_hand(players[j].hand))
+    hand = pretty_print_hand(players[j].hand)
 
-#     score_estimation = player_score_estimation(ruleLm, playerLm, players[j].hand, hand)
-#     print("score estimation:", score_estimation["score_estimation"])
+    score_estimation = player_score_estimation(ruleLm, playerLm, players[j].hand, hand)
+    print("score estimation:", score_estimation["score_estimation"])
 
-#     reasoning_result = player_reasoning(score_estimation, ruleLm, score_estimation["score"])
-#     print("thinking:", reasoning_result["reasoning"])
+    reasoning_result = player_reasoning(score_estimation, ruleLm, score_estimation["score"])
+    print("thinking:", reasoning_result["reasoning"])
 
-#     selection_result = player_hit(reasoning_result)
-#     print("player",str(j),selection_result["select"])
+    selection_result = player_hit(reasoning_result)
+    print("player",str(j),selection_result["select"])
 
-#     if selection_result["select"] == "stand":
-#         break
-#     players[j].receive_card(deck.draw(1)[0])
+    if selection_result["select"] == "stand":
+        break
+    players[j].receive_card(deck.draw(1)[0])
     
 
-testLm = ruleLm
-with block("eval"):
-    testLm+= "my hand's score is 22 " + select(options=["larger than","smaller than","equal to"]) + " 21"
-    testLm+= ", which means that my hand is " + select(name="isBusted", options=["busted","not busted"])
-print(testLm["eval"])
+# testLm = ruleLm
+# with block(name="eval"):
+#     testLm+= "my hand's score is 22 " + select(options=["larger than","smaller than","equal to"]) + " 21"
+#     testLm+= ", which means that my hand is " + select(name="isBusted", options=["busted","not busted"])
+# print(testLm["eval"])
