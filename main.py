@@ -6,14 +6,14 @@ from player import Player
 
 path_to_model = "dolphin-2.6-mistral-7b-dpo-laser.Q4_K_M.gguf"
 # path_to_model = "mistral-7b-v0.1.Q6_K.gguf"
-ruleLm = models.LlamaCpp(path_to_model, n_gpu_layers=-1, echo=False, temperature=0.7, n_ctx=2048)
+ruleLm = models.LlamaCpp(path_to_model, n_gpu_layers=-1, echo=False, temperature=1.0, n_ctx=2048)
 ruleLm+= "I'm playing black jack, with some custom rules, the custom rules are: "
 ruleLm+= " at the beginning of the game, the dealer will deal everyone, including themselves, two cards, face down, so no one can see others cards."
 ruleLm+= " the dealer will then go 1 last turn, asking the player whether they want to hit or stand until that player decide to stand, and then move on to the next player."
 ruleLm+= " each player will only be able to draw their card in the above turn"
 ruleLm+= " the dealer will then reveal their hand, and then draw cards until their total points exceed 15, then they will check other player hands."
-ruleLm+= " if the hand's score is more than 21, the hand is busted"
-ruleLm+= " if the hand's score is less than 16, the hand is not legal and player must hit until their hand's score is at least 16"
+ruleLm+= " if the hand's score is larger than 21, the hand is busted"
+ruleLm+= " if the hand's score is smaller than 16, the hand is not legal and player must hit until their hand's score is at least 16"
 ruleLm+= " the cards from 2 to 10 are worth their face value, face cards (jack,queen,king) are worth 10"
 ruleLm+= " aces are worth either 10 or 11 when it is beneficial (push the score closer to 21) to the player, and 1 when player have a score of 12 or more without counting the ace."
 ruleLm+= " the best hand possible would be 5 card with score at most 21, then 2 Ace, then an Ace with a 10 or a face card, then the highest total points that is at most 21."
@@ -45,14 +45,24 @@ def player_hit(self,lm):
         resultLm+=", that's why i should " + select(name= "select", options= ["hit", "stand"])
     return resultLm
 
+def compare_number(num1, num2):
+    n1 = int(num1)
+    n2 = int(num2)
+    if n1 > n2:
+        return num1 + " which is larger than " + num2
+    elif n1 < n2:
+        return num1 + " which is smaller than " + num2
+    else:
+        return num1 + " which is equal to " + num2
+
 @guidance(stateless=True)
 def player_score_evaluation(self,lm,score):
     resultLm = lm 
     with block(name="score_evaluation"):
-        resultLm+= "my hand's score is " + score + ", which compare to 16, is " + select(options=["larger","smaller","equal"])
+        resultLm+= "my hand's score is " + compare_number(score, "16")
         resultLm+=", which means that my hand is " + select(name="isLegal", options=["not legal","legal"])
-        resultLm+= ". my hand's score is " + score + ", which compare to 21, is " + select(options=["larger","smaller","equal"])
-        resultLm+= ", which means that my hand is " + select(name="isBusted", options=["busted","not busted"])
+        resultLm+= ". my hand's score is " + compare_number(score, "21")
+        resultLm+= ", which means that my hand is " + select(name="isBusted", options=["not busted","busted"])
     return resultLm
 
 @guidance(stateless=True)
@@ -81,7 +91,7 @@ def player_reasoning(self, ruleLm, lm, score):
             reasonLm+= " which is "+ ev["isLegal"]
         else:
             reasonLm+= " which is "+ ev["isBusted"]
-        reasonLm+= ", so i am confidently thinking that" + gen(name="reason",stop='.')
+        reasonLm+= ", so i am thinking that what going to happen is " + gen(name="reason",max_tokens=50)
     return reasonLm
 
 @guidance(stateless=True)
@@ -96,37 +106,41 @@ checkedPlayers = [False for _ in range(playerCount-1)]
 for i in range(playerCount*2):
     players[i % 4].receive_card(deck.draw(1)[0])
 
-# for i in range(playerCount-1):
-#     while True:
-#         print(parse_hand(players[i].hand))
-#         hand = pretty_print_hand(players[i].hand)
-#         score_estimation = player_score_estimation(playerLm, players[i].hand, hand)
-#         print("score estimation:", score_estimation["score_estimation"])
-#         reasoning_result = player_reasoning(score_estimation, score_estimation["score"])
-#         print("thinking:", reasoning_result["reasoning"])
-#         selection_result = player_hit(reasoning_result)
-#         print("player",str(i),selection_result["select"])
-#         if selection_result["select"] == "stand":
-#             break
-#         players[i].receive_card(deck.draw(1)[0])
+for i in range(playerCount-1):
+    while True:
+        print(parse_hand(players[i].hand))
+        hand = pretty_print_hand(players[i].hand)
+
+        score_estimation = player_score_estimation(ruleLm, playerLm, players[i].hand, hand)
+        print("score estimation:", score_estimation["score_estimation"])
+
+        reasoning_result = player_reasoning(score_estimation, ruleLm, score_estimation["score"])
+        print("thinking:", reasoning_result["reasoning"])
+
+        selection_result = player_hit(reasoning_result)
+        print("player",str(i),selection_result["select"])
+
+        if selection_result["select"] == "stand":
+            break
+        players[i].receive_card(deck.draw(1)[0])
     
-j=1
-while True:
-    print(parse_hand(players[j].hand))
-    hand = pretty_print_hand(players[j].hand)
+# j=1
+# while True:
+#     print(parse_hand(players[j].hand))
+#     hand = pretty_print_hand(players[j].hand)
 
-    score_estimation = player_score_estimation(ruleLm, playerLm, players[j].hand, hand)
-    print("score estimation:", score_estimation["score_estimation"])
+#     score_estimation = player_score_estimation(ruleLm, playerLm, players[j].hand, hand)
+#     print("score estimation:", score_estimation["score_estimation"])
 
-    reasoning_result = player_reasoning(score_estimation, ruleLm, score_estimation["score"])
-    print("thinking:", reasoning_result["reasoning"])
+#     reasoning_result = player_reasoning(score_estimation, ruleLm, score_estimation["score"])
+#     print("thinking:", reasoning_result["reasoning"])
 
-    selection_result = player_hit(reasoning_result)
-    print("player",str(j),selection_result["select"])
+#     selection_result = player_hit(reasoning_result)
+#     print("player",str(j),selection_result["select"])
 
-    if selection_result["select"] == "stand":
-        break
-    players[j].receive_card(deck.draw(1)[0])
+#     if selection_result["select"] == "stand":
+#         break
+#     players[j].receive_card(deck.draw(1)[0])
     
 
 # testLm = ruleLm
