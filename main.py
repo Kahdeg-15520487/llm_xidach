@@ -12,10 +12,10 @@ ruleLm+= " at the beginning of the game, the dealer will deal everyone, includin
 ruleLm+= " the dealer will then go 1 last turn, asking the player whether they want to hit or stand until that player decide to stand, and then move on to the next player."
 ruleLm+= " each player will only be able to draw their card in the above turn"
 ruleLm+= " the dealer will then reveal their hand, and then draw cards until their total points exceed 15, then they will check other player hands."
+ruleLm+= " if the hand's score is more than 21, the hand is busted"
+ruleLm+= " if the hand's score is less than 16, the hand is not legal and player must hit until their hand's score is at least 16"
 ruleLm+= " the cards from 2 to 10 are worth their face value, face cards (jack,queen,king) are worth 10"
 ruleLm+= " aces are worth either 10 or 11 when it is beneficial (push the score closer to 21) to the player, and 1 when player have a score of 12 or more without counting the ace."
-ruleLm+= " if the hand's score is more than 21, the hand is busted"
-ruleLm+= " if the hand's score is less than 16, the hand is not legal"
 ruleLm+= " the best hand possible would be 5 card with score at most 21, then 2 Ace, then an Ace with a 10 or a face card, then the highest total points that is at most 21."
 ruleLm+= " the player's hand must be at least 16 (legal), if the hand's scored is less than 16, the player will not earn their bet even if the dealer is busted."
 ruleLm+= " the dealer can check if a player hand's score is legal (at least 16)"
@@ -49,9 +49,9 @@ def player_hit(self,lm):
 def player_score_evaluation(self,lm,score):
     resultLm = lm 
     with block(name="score_evaluation"):
-        resultLm+= "my hand's score is " + score + ", which is " + select(options=["larger than","smaller than","equal to"]) + " 16"
-        resultLm+=", so my hand is " + select(name="isLegal", options=["not legal","legal"])
-        resultLm+= ". my hand's score is " + score + ", which is " + select(options=["larger than","smaller than","equal to"]) + " 21"
+        resultLm+= "my hand's score is " + score + ", which compare to 16, is " + select(options=["larger","smaller","equal"])
+        resultLm+=", which means that my hand is " + select(name="isLegal", options=["not legal","legal"])
+        resultLm+= ". my hand's score is " + score + ", which compare to 21, is " + select(options=["larger","smaller","equal"])
         resultLm+= ", which means that my hand is " + select(name="isBusted", options=["busted","not busted"])
     return resultLm
 
@@ -73,15 +73,15 @@ def player_score_estimation(self,ruleLm, lm, hand, cards):
 @guidance(stateless=True)
 def player_reasoning(self, ruleLm, lm, score):
     reasonLm=lm
+    ev = player_score_evaluation(ruleLm,score)
+    print("score evaluation: ",ev["score_evaluation"])
     with block(name="reasoning"):
         reasonLm+= "my hand's score is " + score
-        ev = player_score_evaluation(ruleLm,score)
-        print("score evaluation: ",ev["score_evaluation"])
         if(ev["isLegal"] == "not legal"):
             reasonLm+= " which is "+ ev["isLegal"]
         else:
             reasonLm+= " which is "+ ev["isBusted"]
-        reasonLm+= ", so i am thinking that" + gen(name="reason",max_tokens=50)
+        reasonLm+= ", so i am confidently thinking that" + gen(name="reason",stop='.')
     return reasonLm
 
 @guidance(stateless=True)
